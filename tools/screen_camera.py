@@ -100,6 +100,7 @@ EV_SYN = 0x00
 EV_KEY = 0x01
 EV_ABS = 0x03
 SYN_REPORT = 0x00
+SYN_MT_REPORT = 0x02
 BTN_TOUCH = 0x14a
 ABS_X = 0x00
 ABS_Y = 0x01
@@ -242,26 +243,33 @@ class TouchInput:
         self.fb_width = fb_width
         self.fb_height = fb_height
         self.multitouch = True
+        self.slots = True
         self._open()
 
     def _open(self):
         try:
             self.fd = os.open(self.device, os.O_WRONLY)
             self._get_abs_info()
-            log(f"Touch device: {self.device}, multitouch={self.multitouch}")
+            log(f"Touch device: {self.device}, multitouch={self.multitouch}, slots={self.slots}")
         except OSError as e:
             log(f"Failed to open touch device: {e}")
             self.fd = None
 
     def _get_abs_info(self):
-        # the kernel drops events a device does not report, so position with
-        # the codes it does
-        EVIOCGABS = lambda axis: 0x80184540 + axis
+        # the kernel drops events a device does not report, so touch with the
+        # codes it does. Read from sysfs, the EVIOCGABS ioctl number differs
+        # between architectures (mips is not x86 or arm)
         try:
-            buf = bytearray(24)
-            fcntl.ioctl(self.fd, EVIOCGABS(ABS_MT_POSITION_X), buf)
+            with open(f'/sys/class/input/{os.path.basename(self.device)}/device/capabilities/abs') as f:
+                words = f.read().split()
         except OSError:
-            self.multitouch = False
+            return
+        word_bits = struct.calcsize('l') * 8
+        bits = 0
+        for word in words:
+            bits = (bits << word_bits) | int(word, 16)
+        self.multitouch = bool(bits >> ABS_MT_POSITION_X & 1)
+        self.slots = bool(bits >> ABS_MT_SLOT & 1)
 
     def _write_event(self, ev_type, code, value):
         if self.fd is None:
@@ -312,19 +320,20 @@ class TouchInput:
         touch_x, touch_y = self._scale(x, y)
         log(f"Touch down at ({x}, {y}) -> touch ({touch_x}, {touch_y})")
         if self.multitouch:
-            self._write_event(EV_ABS, ABS_MT_SLOT, 0)
+            if self.slots:
+                self._write_event(EV_ABS, ABS_MT_SLOT, 0)
             # lvgl's evdev driver only takes tracking id 0 as a press
             self._write_event(EV_ABS, ABS_MT_TRACKING_ID, 0)
         self._position(touch_x, touch_y)
         self._write_event(EV_KEY, BTN_TOUCH, 1)
-        self._write_event(EV_SYN, SYN_REPORT, 0)
+        self._sync()
 
     def touch_move(self, x, y):
         if self.fd is None:
             return
         touch_x, touch_y = self._scale(x, y)
         self._position(touch_x, touch_y)
-        self._write_event(EV_SYN, SYN_REPORT, 0)
+        self._sync()
 
     def touch_up(self):
         if self.fd is None:
@@ -333,6 +342,12 @@ class TouchInput:
         if self.multitouch:
             self._write_event(EV_ABS, ABS_MT_TRACKING_ID, -1)
         self._write_event(EV_KEY, BTN_TOUCH, 0)
+        self._sync()
+
+    def _sync(self):
+        # a multitouch device without slots ends each contact with SYN_MT_REPORT
+        if self.multitouch and not self.slots:
+            self._write_event(EV_SYN, SYN_MT_REPORT, 0)
         self._write_event(EV_SYN, SYN_REPORT, 0)
 
     def close(self):
