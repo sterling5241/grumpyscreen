@@ -175,7 +175,7 @@ jobs:
           mkdir -p "unpack/$asset"
           tar xzf "artifacts/$asset/$asset.tar.gz" -C "unpack/$asset"
           cd "unpack/$asset/grumpyscreen"
-          printf '{"project_name": "grumpyscreen", "project_owner": "pellcorp", "version": "%s", "asset_name": "%s.zip"}\n' "$VERSION" "$asset" > release_info.json
+          printf '{"project_name": "grumpyscreen", "project_owner": "sterling5241", "version": "%s", "asset_name": "%s.zip"}\n' "$VERSION" "$asset" > release_info.json
           zip -r "$GITHUB_WORKSPACE/$asset.zip" .
           cd "$GITHUB_WORKSPACE"
         done
