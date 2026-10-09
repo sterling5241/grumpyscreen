@@ -225,6 +225,7 @@ void PrintStatusPanel::init(json &fan_cfgs) {
   json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
   if (!pstat_state.is_null()) {
     auto pstatus = pstat_state.template get<std::string>();
+    print_status_ = pstatus;
     if (pstatus != "printing" && pstatus != "paused") {
       mini_print_status.hide();
     } else {
@@ -331,17 +332,22 @@ void PrintStatusPanel::consume(json &j) {
 
   auto& pstate = j["/params/0/print_stats/state"_json_pointer];
   if (!pstate.is_null()) {
-    auto print_status = pstate.template get<std::string>();
+    print_status_ = pstate.template get<std::string>();
+  }
 
-    if (print_status != "printing" && print_status != "paused") {
+  // klipper only sends what changed: a print that starts and is cancelled
+  // between two updates after a cancelled print sends a new filename but no
+  // state, so the remembered state decides
+  if (!pstate.is_null() || !printfile.is_null()) {
+    if (print_status_ != "printing" && print_status_ != "paused") {
       mini_print_status.hide();
-      if (print_status != "standby") {
+      if (!print_status_.empty() && print_status_ != "standby") {
         background();
       }
     } else {
       mini_print_status.show();
     }
-    mini_print_status.update_status(print_status);
+    mini_print_status.update_status(print_status_);
   }
 
   update_active_extruder(j);
