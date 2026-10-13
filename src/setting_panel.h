@@ -39,6 +39,7 @@ class SettingPanel {
   void refresh_active_tab();
   void setting_changed(lv_event_t *event);
   void refresh_emergency_stop_warning();
+  void reload_settings();
   void version_tapped();
   void hide_dev_hint();
 

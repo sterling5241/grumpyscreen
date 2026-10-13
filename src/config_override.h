@@ -9,7 +9,7 @@
 #include <vector>
 #include <sys/stat.h>
 
-// Edits only the two UI settings which grumpyscreen exposes.  This deliberately
+// Edits only the UI settings which grumpyscreen exposes.  This deliberately
 // works on the INI text instead of serialising Config, so comments, ordering,
 // unknown settings and the user's choice of ':' or '=' are retained.
 class ConfigOverride {
@@ -22,6 +22,14 @@ public:
 
     bool set_display_sleep_sec(int32_t seconds) const {
         return patch_ui_value("display_sleep_sec", std::to_string(seconds));
+    }
+
+    bool set_display_rotate(uint32_t rotate) const {
+        return patch_ui_value("display_rotate", std::to_string(rotate));
+    }
+
+    bool set_recalibrate_on_rotate(bool enabled) const {
+        return patch_ui_value("recalibrate_on_rotate", enabled ? "true" : "false");
     }
 
 private:

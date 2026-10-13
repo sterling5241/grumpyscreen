@@ -44,11 +44,41 @@ public:
         return true;
     }
 
+    // 0-3, LVGL's quarter turns. Only read at startup, so it takes a GUI restart.
+    bool set_display_rotate(uint32_t rotate) {
+        if (rotate > 3 || !ConfigOverride(writable_path()).set_display_rotate(rotate)) return false;
+        j_["ui"]["display_rotate"] = rotate;
+        return true;
+    }
+
+    bool set_recalibrate_on_rotate(bool enabled) {
+        if (!ConfigOverride(writable_path()).set_recalibrate_on_rotate(enabled)) return false;
+        j_["ui"]["recalibrate_on_rotate"] = enabled;
+        return true;
+    }
+
     template <typename T>
     T get(const std::string& json_ptr, T def = T{}) const {
+        return get_from<T>(j_, json_ptr, def);
+    }
+
+    // What a reset puts a UI-managed value back to. With an override file the
+    // user's choices live there, so the main config still holds the install's
+    // own value; without one the main config has been edited in place and only
+    // def is left.
+    template <typename T>
+    T get_default(const std::string& json_ptr, T def) const {
+        if (override_path_.empty()) return def;
+        json base = json::object();
+        if (!load_ini(path_, base)) return def;
+        return get_from<T>(base, json_ptr, def);
+    }
+
+    template <typename T>
+    static T get_from(const json& j, const std::string& json_ptr, T def) {
         const auto jp = json::json_pointer(json_ptr);
-        if (!j_.contains(jp)) return def;
-        const json& v = j_.at(jp);
+        if (!j.contains(jp)) return def;
+        const json& v = j.at(jp);
         if constexpr (std::is_same_v<T, std::string>) return v.is_string() ? v.get<std::string>() : def;
         else if constexpr (std::is_same_v<T, bool>)   return v.is_boolean() ? v.get<bool>() : def;
         else if constexpr (std::is_integral_v<T>) {

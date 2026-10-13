@@ -72,6 +72,7 @@ Useful `SIM_ARGS` flags (`python3 tools/fake_moonraker.py --help` lists all):
 | `quick_cube.gcode` | A quick single-colour print |
 | `plate_5_parts.gcode` | Exclude object; the bracket's centre lies outside its outline |
 | `keychain_4colour.gcode` | Four colours, plus a fifth tool the file never uses |
+| `quick_4lane_pla.gcode` | A quick check of all four lanes: one short PLA cube per tool |
 | `plate_6colour.gcode` | Six tools, two the same colour, mixed materials |
 | `stripes_2colour.gcode` | Frequent tool changes |
 | `pause_at_layer_6.gcode` | Pauses itself, like a filament change |

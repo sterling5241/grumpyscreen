@@ -208,6 +208,9 @@ async def run_afc_colour():
 
 async def run_afc_empty():
     c = await subscribed()
+    # lane4 starts loaded; eject it so T3 has nothing to load
+    await c.gcode("LANE_UNLOAD LANE=lane4")
+    check(await c.until(lambda: not c.state["AFC_lane lane4"]["load"], 5), "afc: lane4 ejected")
     await c.call("printer.print.start", {"filename": "keychain_4colour.gcode"})
     check(await c.until(lambda: c.state["print_stats"].get("state") == "paused", 240),
           "afc: T3 on the empty lane4 pauses the print")

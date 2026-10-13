@@ -174,6 +174,30 @@ value: ignored
     assert(main_patched.find("prompt_emergency_stop: false") != std::string::npos);
     assert(main_patched.find("display_sleep_sec: -1") != std::string::npos);
 
+    // Rotation and the recalibrate switch from the Developer screen are
+    // written the same way; rotation only takes LVGL's four quarter turns.
+    assert(conf->set_display_rotate(2));
+    assert(!conf->set_display_rotate(4));
+    assert(conf->get<uint32_t>("/ui/display_rotate") == 2);
+    assert(conf->set_recalibrate_on_rotate(false));
+    assert(!conf->get<bool>("/ui/recalibrate_on_rotate", true));
+
+    std::ifstream rotate_patched_input(path);
+    const std::string rotate_patched((std::istreambuf_iterator<char>(rotate_patched_input)),
+                                     std::istreambuf_iterator<char>());
+    assert(rotate_patched.find("display_rotate: 2") != std::string::npos);
+    assert(rotate_patched.find("recalibrate_on_rotate: false") != std::string::npos);
+
+    // A reset falls back to the caller's default while the main config has
+    // been edited in place, and to the main config's value once an override
+    // file holds the user's choices.
+    assert(conf->get_default<int32_t>("/ui/display_sleep_sec", 600) == 600);
+    auto choices_path = write_tmp_ini("build/test_config_choices_override.ini", "[ui]\ndisplay_rotate: 1\n");
+    conf->set_override_path(choices_path);
+    assert(conf->get_default<int32_t>("/ui/display_sleep_sec", 600) == -1);
+    assert(conf->get_default<uint32_t>("/ui/display_rotate", 0) == 2);
+    assert(conf->get_default<bool>("/ui/missing_flag", true));
+
     // The remaining object assertions cover the merged override view.
     assert(conf->load_override(override_path) && "override reload should succeed");
 

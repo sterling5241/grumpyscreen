@@ -147,6 +147,10 @@ def write_ui_config(out_path, base_path):
                 line = "thumbnail_path: %s" % thumbs
             elif section == "mmu" and key == "backend":
                 line = "backend: %s" % S.ARGS.backend
+            elif section == "ui" and key == "display_rotate":
+                # the shipped value turns a printer's mounted panel; the
+                # desktop window starts upright and rotates from the UI
+                line = "display_rotate: 0"
             elif section == "commands" and key in COMMANDS:
                 line = "%s: python3 tools/sim_hook.py %s --port %d" % (key, COMMANDS[key], port)
         out.append(line)

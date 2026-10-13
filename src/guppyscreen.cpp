@@ -330,10 +330,17 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
   Config *conf = Config::get_instance();
   auto current_rotate = conf->get<std::uint32_t>("/ui/display_rotate");
 
+  // The coefficients map raw touch to physical panel coordinates and LVGL
+  // rotates after them, so they should survive a rotation change. Recalibrating
+  // anyway stays the default until that is confirmed on hardware; the
+  // Developer screen can turn it off.
   auto saved_rotate = j["display_rotate"].get<std::uint32_t>();
   if (saved_rotate != current_rotate) {
-    LOG_INFO("discarding calibration data: display_rotate changed from {} to {}", saved_rotate, current_rotate);
-    return {};
+    if (conf->get<bool>("/ui/recalibrate_on_rotate", true)) {
+      LOG_INFO("discarding calibration data: display_rotate changed from {} to {}", saved_rotate, current_rotate);
+      return {};
+    }
+    LOG_INFO("keeping calibration data across display_rotate change from {} to {}", saved_rotate, current_rotate);
   }
 
   if (!j.contains("calibrations") || !j["calibrations"].is_array()) {

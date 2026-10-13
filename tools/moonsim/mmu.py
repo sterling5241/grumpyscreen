@@ -19,7 +19,7 @@ LOAD_TIME = 1.5         # seconds a load or unload takes
 # fed to the hub, "staged" = on the prep sensor only (not loadable), False = empty
 LANE_PRESETS = [
     ("PLA", "#F44336", True, "T0", 950), ("PETG", "#2196F3", True, "T1", 800),
-    ("ABS", "#4CAF50", True, "T2", 1000), ("", "", False, "", 0),
+    ("ABS", "#4CAF50", True, "T2", 1000), ("PLA", "#FFEB3B", True, "T3", 1000),
     ("PLA", "#FFEB3B", "staged", "T0", 1000), ("PETG", "#212121", True, "T1", 750),
     ("ABS", "#FFFFFF", True, "", 1000), ("", "", False, "", 0),
     ("PLA", "#9C27B0", True, "T3", 600), ("PETG", "#00BCD4", True, "", 900),

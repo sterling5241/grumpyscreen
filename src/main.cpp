@@ -115,7 +115,10 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     disp_drv.hor_res    = width;
     disp_drv.ver_res    = height;
     disp_drv.dpi        = LV_DPI_DEF * width / 480;  // LVGL defaults scale with the screen
+#endif
 
+    // The SDL window rotates the same way as a panel, so the simulator shows
+    // what a rotation change does on a printer.
     const char *rotate_env = std::getenv("DISPLAY_ROTATE");
     std::uint32_t rotate_value;
     if (rotate_env != nullptr && rotate_env[0] != '\0') {
@@ -136,7 +139,6 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
       disp_drv.sw_rotate = 1;
       disp_drv.rotated = rotate_value;
     }
-#endif
 
     disp = lv_disp_drv_register(&disp_drv);
 

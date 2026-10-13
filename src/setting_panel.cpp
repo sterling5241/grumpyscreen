@@ -227,9 +227,6 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_label_set_text(emergency_label, "Confirm emergency stop");
   lv_obj_add_style(emergency_label, &Theme::styles().dim_label, 0);
   emergency_prompt_switch = lv_switch_create(emergency_row);
-  if (conf->get<bool>("/ui/prompt_emergency_stop")) {
-    lv_obj_add_state(emergency_prompt_switch, LV_STATE_CHECKED);
-  }
   lv_obj_add_event_cb(emergency_prompt_switch, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
@@ -239,7 +236,6 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_width(emergency_stop_warning, LV_PCT(100));
   lv_label_set_long_mode(emergency_stop_warning, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_color(emergency_stop_warning, Theme::col(Theme::DANGER), 0);
-  refresh_emergency_stop_warning();
 
   add_about_line(settings_panel, "Screen timeout", true);
   sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
@@ -248,12 +244,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_btnmatrix_set_map(sleep_timeout_selector, DISPLAY_SLEEP_MAP);
   lv_btnmatrix_set_btn_ctrl_all(sleep_timeout_selector, LV_BTNMATRIX_CTRL_CHECKABLE);
   lv_btnmatrix_set_one_checked(sleep_timeout_selector, true);
-  const int sleep_idx = display_sleep_index(conf->get<int32_t>("/ui/display_sleep_sec"));
-  if (sleep_idx >= 0) {
-    lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, sleep_idx, LV_BTNMATRIX_CTRL_CHECKED);
-  }
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
+  reload_settings();
+  // a reset on the Developer screen changes what these controls show
+  dev_panel.set_settings_changed_cb([this]() { reload_settings(); });
 
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
@@ -395,6 +390,22 @@ void SettingPanel::hide_dev_hint() {
     dev_hint_timer = nullptr;
   }
   lv_obj_add_flag(dev_hint_label, LV_OBJ_FLAG_HIDDEN);
+}
+
+void SettingPanel::reload_settings() {
+  Config *conf = Config::get_instance();
+  if (conf->get<bool>("/ui/prompt_emergency_stop")) {
+    lv_obj_add_state(emergency_prompt_switch, LV_STATE_CHECKED);
+  } else {
+    lv_obj_clear_state(emergency_prompt_switch, LV_STATE_CHECKED);
+  }
+  refresh_emergency_stop_warning();
+
+  lv_btnmatrix_clear_btn_ctrl_all(sleep_timeout_selector, LV_BTNMATRIX_CTRL_CHECKED);
+  const int sleep_idx = display_sleep_index(conf->get<int32_t>("/ui/display_sleep_sec"));
+  if (sleep_idx >= 0) {
+    lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, sleep_idx, LV_BTNMATRIX_CTRL_CHECKED);
+  }
 }
 
 void SettingPanel::refresh_emergency_stop_warning() {

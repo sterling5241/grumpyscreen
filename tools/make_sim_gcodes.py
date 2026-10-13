@@ -590,6 +590,14 @@ LIBRARY = {
                    (YELLOW, "PLA", "Yellow PLA"), (BLACK, "PETG", "Black PETG"), (RED, "PLA", "Red PLA")],
         temps=(235, 70)),
 
+    # a quick check of all four default lanes: one short PLA cube per tool
+    "quick_4lane_pla.gcode": dict(
+        parts=[Part("cube_lane%d.stl_id_%d_copy_0" % (i + 1, i), rect(C - 45 + i * 24, C - 8, 16, 16),
+                    2.0, tool=i)
+               for i in range(4)],
+        filaments=[(RED, "PLA", "Red PLA"), (BLUE, "PLA", "Blue PLA"),
+                   (GREEN, "PLA", "Green PLA"), (YELLOW, "PLA", "Yellow PLA")]),
+
     # two colours swapped every two layers: lots of tool changes quickly
     "stripes_2colour.gcode": dict(
         parts=[Part("stripes.stl_id_0_copy_0", circle(C, C, 14), 2.4, tool=0,
