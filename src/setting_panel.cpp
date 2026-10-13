@@ -24,6 +24,14 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 // The factory reset dialog is deliberately left up longer before we block.
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
+// The Developer screen hides behind seven taps on the version, Android style:
+// taps further apart than the gap start the count again, and the last few
+// show how many are left.
+static constexpr uint32_t DEV_UNLOCK_TAPS = 7;
+static constexpr uint32_t DEV_UNLOCK_HINT_FROM = 4;
+static constexpr uint32_t DEV_UNLOCK_TAP_GAP_MS = 1500;
+static constexpr uint32_t DEV_UNLOCK_HINT_MS = 2000;
+
 static constexpr int32_t DISPLAY_SLEEP_VALUES[] = {-1, 60, 300, 600, 1800};
 static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "30 min", ""};
 
@@ -125,6 +133,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
   , sleep_timeout_selector(nullptr)
+  , version_label(nullptr)
+  , dev_hint_label(nullptr)
+  , dev_hint_timer(nullptr)
+  , version_taps(0)
+  , last_version_tap(0)
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -146,6 +159,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #endif
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
+  , dev_panel(c, l)
 {
   // Restart Klipper is a local service command and remains useful even when
   // Moonraker or Klipper is unavailable. Firmware restart, on the other hand,
@@ -176,7 +190,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   add_about_line(about_panel, "Grumpyscreen", true);
 #endif
   add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
-  add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
+  version_label = add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
+  lv_obj_add_flag(version_label, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(version_label, &SettingPanel::_version_tapped_cb, LV_EVENT_CLICKED, this);
+  dev_hint_label = add_about_line(about_panel, "", true);
+  lv_obj_add_flag(dev_hint_label, LV_OBJ_FLAG_HIDDEN);
 
   lv_obj_t *settings_panel = lv_obj_create(settings_cont);
   lv_obj_clear_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
@@ -263,6 +281,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 }
 
 SettingPanel::~SettingPanel() {
+  if (dev_hint_timer != nullptr) {
+    lv_timer_del(dev_hint_timer);
+    dev_hint_timer = nullptr;
+  }
   if (owns_cont && cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
@@ -326,6 +348,53 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
+}
+
+void SettingPanel::_version_tapped_cb(lv_event_t *event) {
+  static_cast<SettingPanel *>(lv_event_get_user_data(event))->version_tapped();
+}
+
+void SettingPanel::_dev_hint_timer_cb(lv_timer_t *timer) {
+  SettingPanel *panel = static_cast<SettingPanel *>(timer->user_data);
+  panel->dev_hint_timer = nullptr;  // a one shot timer deletes itself
+  panel->hide_dev_hint();
+}
+
+void SettingPanel::version_tapped() {
+  const uint32_t now = lv_tick_get();
+  if (version_taps > 0 && lv_tick_elaps(last_version_tap) > DEV_UNLOCK_TAP_GAP_MS) {
+    version_taps = 0;
+  }
+  last_version_tap = now;
+
+  if (++version_taps >= DEV_UNLOCK_TAPS) {
+    version_taps = 0;
+    hide_dev_hint();
+    LOG_INFO("opening developer panel");
+    dev_panel.foreground();
+    return;
+  }
+
+  const uint32_t left = DEV_UNLOCK_TAPS - version_taps;
+  if (left > DEV_UNLOCK_HINT_FROM) return;
+
+  lv_label_set_text_fmt(dev_hint_label, "%u tap%s from developer options",
+                        (unsigned)left, left == 1 ? "" : "s");
+  lv_obj_clear_flag(dev_hint_label, LV_OBJ_FLAG_HIDDEN);
+  if (dev_hint_timer != nullptr) {
+    lv_timer_reset(dev_hint_timer);
+  } else {
+    dev_hint_timer = lv_timer_create(&SettingPanel::_dev_hint_timer_cb, DEV_UNLOCK_HINT_MS, this);
+    lv_timer_set_repeat_count(dev_hint_timer, 1);
+  }
+}
+
+void SettingPanel::hide_dev_hint() {
+  if (dev_hint_timer != nullptr) {
+    lv_timer_del(dev_hint_timer);
+    dev_hint_timer = nullptr;
+  }
+  lv_obj_add_flag(dev_hint_label, LV_OBJ_FLAG_HIDDEN);
 }
 
 void SettingPanel::refresh_emergency_stop_warning() {

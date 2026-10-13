@@ -73,6 +73,7 @@ public:
     }
 
     const std::string& get_path() const { return path_; }
+    const std::string& get_override_path() const { return override_path_; }
 
 private:
     Config() = default;

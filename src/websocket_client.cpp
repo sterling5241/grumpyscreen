@@ -27,6 +27,12 @@ KWebSocketClient::KWebSocketClient(EventLoopPtr loop)
 KWebSocketClient::~KWebSocketClient() {
 }
 
+void KWebSocketClient::reconnect() {
+  loop()->runInLoop([this]() {
+    if (channel) channel->close();
+  });
+}
+
 int KWebSocketClient::connect(const char* url,
 			      std::function<void()> opened,
 			      std::function<void()> klippy_ready,

@@ -46,6 +46,10 @@ class KWebSocketClient : public hv::WebSocketClient {
     return out + "\"";
   }
 
+  // Drop the current connection and let the reconnect policy bring it back.
+  // close() would also clear that policy and leave the screen offline for good.
+  void reconnect();
+
   void register_method_callback(std::string resp_method,
 				std::string handler_name,
 				std::function<void(json&)> cb);

@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "button_container.h"
+#include "dev_panel.h"
 #include "wifi_panel.h"
 #include "websocket_client.h"
 #ifdef COSMOS
@@ -33,9 +34,13 @@ class SettingPanel {
  private:
   static void _tabview_event_cb(lv_event_t *event);
   static void _setting_changed_cb(lv_event_t *event);
+  static void _version_tapped_cb(lv_event_t *event);
+  static void _dev_hint_timer_cb(lv_timer_t *timer);
   void refresh_active_tab();
   void setting_changed(lv_event_t *event);
   void refresh_emergency_stop_warning();
+  void version_tapped();
+  void hide_dev_hint();
 
   KWebSocketClient &ws;
   bool owns_cont;
@@ -51,6 +56,12 @@ class SettingPanel {
   lv_obj_t *emergency_prompt_switch;
   lv_obj_t *emergency_stop_warning;
   lv_obj_t *sleep_timeout_selector;
+  // seven taps on the About version open the Developer screen
+  lv_obj_t *version_label;
+  lv_obj_t *dev_hint_label;
+  lv_timer_t *dev_hint_timer;
+  uint32_t version_taps;
+  uint32_t last_version_tap;
 #ifdef COSMOS
   UpdateManagerClient update_manager;
 #endif
@@ -67,6 +78,8 @@ class SettingPanel {
   ButtonContainer update_btn;
 #endif
   ButtonContainer shutdown_host_btn;
+
+  DevPanel dev_panel;
 };
 
 #endif // __SETTING_PANEL_H__
