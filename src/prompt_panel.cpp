@@ -10,12 +10,12 @@ using namespace Theme;
 // uncomment for helper boxes
 // #define DEBUG_LINES
 
-// a row of prompt buttons, spread evenly; the footer and every button group
-static lv_obj_t *button_row(lv_obj_t *parent) {
+// a row of prompt buttons; the footer and every button group
+static lv_obj_t *button_row(lv_obj_t *parent, lv_flex_align_t align) {
   lv_obj_t *row = create_row(parent);
   lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_flex_align(row, align, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   return row;
 }
 
@@ -38,25 +38,35 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
     : NotifyConsumer(lock)
     , ws(websocket_client)
     , print_status_panel(print_status_panel)
-    , prompt_cont(create_screen(lv_scr_act()))
-    , flex(create_row(prompt_cont))
-    , header(lv_label_create(prompt_cont))
-    , footer_cont(button_row(prompt_cont))
+    , prompt_cont(lv_obj_create(lv_scr_act()))
+    , box(lv_obj_create(prompt_cont))
+    , flex(create_row(box))
+    , header(lv_label_create(box))
+    , footer_cont(button_row(box, LV_FLEX_ALIGN_END))
 {
-  // header, body, buttons: the one-line header and the button row take what
-  // they need, the body gets the rest
-  static lv_coord_t grid_main_row_dsc_detail[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(prompt_cont, grid_main_col_dsc_detail, grid_main_row_dsc_detail);
+  // a popout like the screen's own: the page dimmed behind a box sized to the
+  // prompt, header over the body over the buttons
+  lv_obj_set_size(prompt_cont, lv_pct(100), lv_pct(100));
+  lv_obj_add_style(prompt_cont, &styles().popout, 0);
+  lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_set_grid_cell(header,      LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START,   0, 1);
-  lv_obj_set_grid_cell(flex,        LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
-  lv_obj_set_grid_cell(footer_cont, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_END,     2, 1);
+  lv_obj_add_style(box, &styles().popout_box, 0);
+  lv_obj_set_size(box, popout_w(), LV_SIZE_CONTENT);
+  lv_obj_center(box);
+  lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
+  manage_scroll(box);
+  lv_obj_move_to_index(header, 0);
 
-  lv_obj_set_style_text_font(header, scale_font(16), 0);
+  lv_obj_set_width(header, lv_pct(100));
+  lv_obj_set_style_text_font(header, scale_font(18), 0);
+  lv_obj_set_style_pad_bottom(header, gap(), 0);
+  lv_obj_set_style_border_side(header, LV_BORDER_SIDE_BOTTOM, 0);
+  lv_obj_set_style_border_width(header, border_w(), 0);
+  lv_obj_set_style_border_color(header, col(BORDER), 0);
 
-  lv_obj_set_flex_flow(flex, LV_FLEX_FLOW_COLUMN_WRAP);
-  lv_obj_set_flex_align(flex, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_size(flex, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(flex, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(flex, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
 #ifdef DEBUG_LINES
   // for debugging
@@ -154,9 +164,8 @@ void PromptPanel::handle_macro_response(json &j) {
         // create label and add to flex field
         lv_obj_t *textfield = lv_label_create(flex);
         lv_obj_set_size(textfield, lv_pct(100), LV_SIZE_CONTENT);
-        lv_obj_set_style_min_height(textfield, touch_h(), 0);
         lv_label_set_long_mode(textfield, LV_LABEL_LONG_WRAP);
-        lv_obj_set_flex_grow(textfield, 1);
+        lv_obj_set_style_text_line_space(textfield, scale_r(3), 0);
         lv_label_set_text(textfield, prompt_text.c_str());
 #ifdef DEBUG_LINES
         lv_obj_set_style_border_width(textfield, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -167,10 +176,8 @@ void PromptPanel::handle_macro_response(json &j) {
       } else if (command.find("prompt_button_group_start") == 0) {
         LOG_DEBUG("Button group created");
         // create new button group in flex window and mark active
-        button_group_cont = button_row(flex);
-        lv_obj_set_flex_grow(button_group_cont, 1);
-        lv_obj_set_style_max_height(button_group_cont, lv_pct(62), 0);
-        lv_obj_set_style_min_height(button_group_cont, touch_h(), 0);
+        button_group_cont = button_row(flex, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(button_group_cont, scale_r(4), 0);
 
 #ifdef DEBUG_LINES
         lv_obj_set_style_border_width(button_group_cont, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -200,19 +207,26 @@ void PromptPanel::handle_macro_response(json &j) {
         LOG_DEBUG("PROMPT_FOOTER_BUTTON: {} CMD: {}, type {}", prompt_footer_button, prompt_button_command, prompt_button_type);
         lv_obj_t *btn = NULL;
         if (command.find("prompt_footer_button") == 0) {
+          // footer actions sit right, sized to their label like the screen's dialogs
           btn = lv_btn_create(footer_cont);
+          lv_obj_set_size(btn, LV_SIZE_CONTENT, touch_h());
+          lv_obj_set_style_min_width(btn, scale_w(96), 0);
+          lv_obj_set_style_pad_hor(btn, gap() * 2, 0);
+        } else if (button_group_cont == NULL) {
+          btn = lv_btn_create(flex);
+          lv_obj_set_size(btn, lv_pct(60), touch_h());
         } else {
-          if (button_group_cont == NULL) {
-            btn = lv_btn_create(flex);
-          } else {
-            btn = lv_btn_create(button_group_cont);
-          }
+          // a group shares its row evenly, like keys
+          btn = lv_btn_create(button_group_cont);
+          lv_obj_set_size(btn, 1, touch_h());
+          lv_obj_set_flex_grow(btn, 1);
+          lv_obj_add_style(btn, &styles().key, 0);
         }
         if (btn) {
-          lv_obj_set_size(btn, lv_pct(45), touch_h());
-          lv_obj_set_style_max_width(btn, lv_pct(45), 0);
-          lv_obj_set_style_min_width(btn, scale_w(32), 0);
-          lv_obj_set_flex_grow(btn, 1);
+          lv_obj_add_style(btn, &styles().text_btn, 0);
+          if (prompt_button_type == "none") {
+            lv_obj_add_style(btn, &styles().text_btn_pressed, LV_STATE_PRESSED);
+          }
           lv_obj_t *label = lv_label_create(btn);
           // a hidden label is abused to transfer the command and auto-clean it
           lv_obj_t *command = lv_label_create(btn);

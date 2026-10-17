@@ -43,6 +43,7 @@ class PromptPanel : public NotifyConsumer {
         bool restore_print_status_foreground_ = false;
         lv_obj_t *promptpanel_cont;
         lv_obj_t *prompt_cont;
+        lv_obj_t *box;
         lv_obj_t *flex;
         lv_obj_t *header;
         lv_obj_t *button_group_cont;
